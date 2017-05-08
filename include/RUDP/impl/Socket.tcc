@@ -13,11 +13,9 @@
 #include <chrono>
 
 #include <boost/uuid/uuid_io.hpp>
-#include <boost/log/core.hpp>
-#include <boost/log/trivial.hpp>
-#include <boost/log/expressions.hpp>
 
 #include "RUDP/Socket.hpp"
+#include "RUDP/utility.hpp"
 
 namespace {
 	template <typename ContainerT, typename PredicateT>
@@ -128,7 +126,7 @@ void rudp::Socket<Header>::handle_async_receive_from(const boost::system::error_
 			});
 
 			if (peer_it == m_peers.end()) { // peer doesn't exist
-				//BOOST_LOG_TRIVIAL(trace) << "New peer: " << boost::uuids::to_string(packet.get_header().uuid);
+				RUDP_LOG(trace, "New peer: " << boost::uuids::to_string(packet.get_header().uuid));
 
 				m_peers.emplace_back(m_remote_endpoint,
 				                    packet.get_header().uuid,
@@ -149,6 +147,8 @@ void rudp::Socket<Header>::handle_async_receive_from(const boost::system::error_
 				if (lib_message == CONNECTION_MESSAGE || lib_message == KEEP_ALIVE_MESSAGE) {
 					is_a_user_message = false;
 				} else if (lib_message == DISCONNECTION_MESSAGE) {
+					RUDP_LOG(trace, "Peer disconnected: " << boost::uuids::to_string(packet.get_header().uuid));
+
 					is_a_user_message = false;
 					if (m_disconnection_handler) {
 						m_disconnection_handler(*peer_it);
@@ -166,7 +166,7 @@ void rudp::Socket<Header>::handle_async_receive_from(const boost::system::error_
 				m_receive_handler(packet, bytes_transferred, *peer_it);
 			}
 		} catch (std::exception& e) {
-			//BOOST_LOG_TRIVIAL(info) << "Received packet with a bad protocol.";
+			RUDP_LOG(info, "Received packet with a bad protocol.");
 			m_socket.send_to(boost::asio::buffer("Bad protocol"), m_remote_endpoint);
 			// FIXME: possible network loop...
 		}
@@ -179,13 +179,14 @@ void rudp::Socket<Header>::handle_async_receive_from(const boost::system::error_
 
 template <typename Header>
 void rudp::Socket<Header>::handle_keep_alive() {
-	//BOOST_LOG_TRIVIAL(trace) << "keep alive";
+	RUDP_LOG(trace, "keep alive");
 
 	// check for timeouts
 	std::chrono::seconds now =
 		std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch());
 	m_peers.erase(std::remove_if(m_peers.begin(), m_peers.end(), [this, &now](const auto& peer) -> bool {
 		if (peer.last_packet_timestamp + std::chrono::seconds(m_connection_timeout) < now) {
+			RUDP_LOG(trace, "Peer timed out: " << boost::uuids::to_string(peer.uuid));
 			if (m_disconnection_timeout_handler) {
 				m_disconnection_timeout_handler(peer);
 			}

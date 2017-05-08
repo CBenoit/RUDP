@@ -43,6 +43,11 @@ public:
 
 	Socket(boost::asio::io_service& io_service, const size_t buffer_size);
 
+	~Socket() {
+		if (m_listening)
+			close();
+	}
+
 	void set_receive_handler(const receive_handler_type& handler) noexcept {
 		m_receive_handler = handler;
 	}

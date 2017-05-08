@@ -58,3 +58,4 @@ Extract of article 13 :
 - Add doxygen documentation.
 - Add time critical protocol.
 - Add reliable order protocol.
+- Add doc about RUDP logging.
